@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrador CENIS | Ismerely</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <link rel="stylesheet" href="estilos_cenis.css">
+</head>
+
+<body class="animar-entrada">
+    <!-- LOGIN -->
+    <div id="loginView" class="flex items-center justify-center min-h-screen p-4">
+        <div class="tarjeta-cenis max-w-md w-full">
+            <div class="flex items-center gap-3 mb-4">
+                <img src="logo_ismerely.png" alt="Ismerely" class="logo-ismerely">
+                <div>
+                    <h2 class="text-xl font-bold m-0">Acceso Administrador</h2>
+                    <p class="text-xs text-slate-500 m-0">Inicia sesión con tu cuenta registrada</p>
+                </div>
+            </div>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold">Correo electrónico</label>
+                    <input type="email" id="adminEmail" required
+                        class="w-full border-2 border-pink-100 rounded-lg p-2.5 mt-1">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold">Contraseña</label>
+                    <input type="password" id="adminPass" required
+                        class="w-full border-2 border-pink-100 rounded-lg p-2.5 mt-1">
+                </div>
+                <button type="submit" class="btn-rosa w-full py-2.5 text-sm uppercase">Entrar al Panel</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- PANEL ADMIN -->
+    <div id="adminView" class="hidden">
+        <header class="header-cenis">
+            <div class="brand-box">
+                <img src="logo_ismerely.png" alt="Ismerely" class="logo-ismerely">
+                <div>
+                    <h1 class="text-xl font-bold m-0">Panel de Administración Total - CENIS</h1>
+                    <p id="adminUserLabel" class="text-xs text-pink-100 m-0">Sesión activa</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="enviarReporteAdmin()" class="btn-verde px-4 py-2 text-xs uppercase">✉️ Enviar
+                    Reporte</button>
+                <button onclick="logout()"
+                    class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-lg text-xs font-semibold">Cerrar
+                    Sesión</button>
+            </div>
+        </header>
+
+        <div class="max-w-7xl mx-auto px-4 space-y-6">
+            <!-- Reportes Rápidos desde Administrador -->
+            <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
+                <h2 class="text-lg font-bold mb-2">Enviar Reporte por Correo</h2>
+                <p class="text-xs text-slate-500 mb-3">Genera un reporte mensual, por almacén, por periodo seleccionado
+                    o general.</p>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Tipo de Reporte</label>
+                        <select id="repTipo" class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                            <option value="mensual">Mensual (Mes actual)</option>
+                            <option value="almacen">Por Almacén</option>
+                            <option value="periodo">Por Periodo Seleccionado</option>
+                            <option value="general">General (Todo)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Almacén (si aplica)</label>
+                        <select id="repAlmacen" class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                            <option value="ALL">Todos los almacenes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Desde</label>
+                        <input type="date" id="repInicio"
+                            class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Hasta</label>
+                        <input type="date" id="repFin"
+                            class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                    </div>
+                    <button onclick="enviarReporteAdmin()" class="btn-rosa py-2 px-4 text-xs uppercase">Enviar
+                        Correo</button>
+                </div>
+            </div>
+
+            <!-- Usuarios + Límite y Formas de Pago por Almacén -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="tarjeta-cenis">
+                    <h2 class="text-lg font-bold mb-2">Agregar Usuario para Ingresar</h2>
+                    <p class="text-xs text-slate-500 mb-4">Crea una cuenta en Supabase Auth para operadores o
+                        administradores.</p>
+                    <form id="formNuevoUsuario" class="space-y-3">
+                        <input type="email" id="nuevoUsuarioEmail" placeholder="correo@empresa.com" required
+                            class="w-full border-2 border-pink-100 rounded-lg p-2 text-sm">
+                        <input type="password" id="nuevoUsuarioPass" placeholder="Contraseña (mín. 6 caracteres)"
+                            minlength="6" required class="w-full border-2 border-pink-100 rounded-lg p-2 text-sm">
+                        <button type="submit" class="btn-oscuro px-4 py-2 text-xs uppercase">Registrar Usuario</button>
+                    </form>
+                    <p id="msgUsuario" class="text-xs mt-2 font-semibold"></p>
+                </div>
+
+                <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
+                    <h2 class="text-lg font-bold mb-2">Límite de Cancelaciones y Formas de Pago por Almacén</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        <select id="cfgAlmacenSelect" onchange="cargarCfgAlmacen()"
+                            class="border-2 border-pink-100 rounded-lg p-2 text-sm bg-white"></select>
+                        <input type="number" id="cfgLimiteCancel" min="0"
+                            placeholder="Límite mensual cancelaciones (0 = sin límite)"
+                            class="border-2 border-pink-100 rounded-lg p-2 text-sm">
+                    </div>
+                    <label class="block text-xs font-bold mb-1">Formas de pago habilitadas para este almacén:</label>
+                    <div id="cfgFormasPagoBoxes"
+                        class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-xs mb-3 bg-[#fdf9fb] p-3 rounded-lg"></div>
+                    <button type="button" onclick="guardarCfgAlmacen()"
+                        class="btn-verde px-4 py-2 text-xs uppercase">Guardar Reglas del Almacén</button>
+                    <span id="msgCfgAlmacen" class="text-xs ml-2 font-semibold text-emerald-700"></span>
+                </div>
+            </div>
+
+            <!-- Carga Masiva Excel -->
+            <div class="tarjeta-cenis">
+                <h2 class="text-lg font-bold mb-1">Importar desde Excel (Machotes 2027)</h2>
+                <p class="text-xs text-slate-500 mb-4">Lee encabezados desde la fila 3 y agrega los registros al
+                    historial con fecha de servidor y usuario.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1">Tipo de archivo</label>
+                        <select id="excelTipoTabla"
+                            class="w-full border-2 border-pink-100 rounded-lg p-2 bg-white text-sm">
+                            <option value="cenis_cancelaciones">Formato de Cancelaciones</option>
+                            <option value="cenis_cambios_pago">Formato de Cambios de Forma de Pago</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase mb-1">Archivo .xlsx</label>
+                        <input type="file" id="excelFile" accept=".xlsx, .xls"
+                            class="w-full border-2 border-pink-100 rounded-lg p-1.5 bg-slate-50 text-sm">
+                    </div>
+                    <button onclick="procesarExcel()" class="btn-rosa py-2.5 px-4 text-xs uppercase">Subir e Integrar al
+                        Historial</button>
+                </div>
+                <div id="excelStatus" class="mt-3 text-sm font-medium"></div>
+            </div>
+
+            <!-- Historial -->
+            <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                    <div class="flex gap-2">
+                        <button onclick="cargarHistorial('cenis_cancelaciones')"
+                            class="btn-oscuro px-4 py-2 text-xs">Historial Cancelaciones</button>
+                        <button onclick="cargarHistorial('cenis_cambios_pago')"
+                            class="btn-verde px-4 py-2 text-xs">Historial Cambios de Pago</button>
+                    </div>
+                    <span id="tablaActivaLabel" class="text-xs font-bold text-slate-500">Mostrando: Cancelaciones</span>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="tabla-ismerely text-xs">
+                        <thead>
+                            <tr>
+                                <th>Fecha Manual</th>
+                                <th>Registro Servidor</th>
+                                <th>Registrado Por</th>
+                                <th>Núm. Venta</th>
+                                <th>Almacén</th>
+                                <th>Total</th>
+                                <th>Detalle / Motivo</th>
+                                <th>Responsable</th>
+                                <th class="text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaHistorialBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        if (EMAILJS_CONFIG.enabled && window.emailjs) {
+            emailjs.init(EMAILJS_CONFIG.publicKey);
+        }
+
+        let tablaActual = 'cenis_cancelaciones';
+        let correoAdminActual = '';
+
+        const todosAlmacenes = [...CATALOGOS.almacenes.Nacional, ...CATALOGOS.almacenes.Extranjero].filter(a => a.nombre);
+        const opcionesAlmacenesHtml = todosAlmacenes.map(a => `<option value="${a.nombre}">${a.nombre} (${a.pais})</option>`).join('');
+        document.getElementById('cfgAlmacenSelect').innerHTML = opcionesAlmacenesHtml;
+        document.getElementById('repAlmacen').innerHTML += opcionesAlmacenesHtml;
+
+        document.getElementById('cfgFormasPagoBoxes').innerHTML = CATALOGOS.formasPagoDefault
+            .map(fp => `<label class="flex items-center gap-1.5"><input type="checkbox" class="chk-fp" value="${fp}"> ${fp}</label>`).join('');
+
+        function cargarCfgAlmacen() {
+            const nombreSel = document.getElementById('cfgAlmacenSelect').value;
+            const obj = todosAlmacenes.find(a => a.nombre === nombreSel);
+            document.getElementById('cfgLimiteCancel').value = obj?.limiteCancelaciones || 0;
+            const habilitadas = obj?.formasPago || CATALOGOS.formasPagoDefault;
+            document.querySelectorAll('.chk-fp').forEach(chk => {
+                chk.checked = habilitadas.includes(chk.value);
+            });
+        }
+
+        function guardarCfgAlmacen() {
+            const nombreSel = document.getElementById('cfgAlmacenSelect').value;
+            const limite = parseInt(document.getElementById('cfgLimiteCancel').value, 10) || 0;
+            const seleccionadas = Array.from(document.querySelectorAll('.chk-fp:checked')).map(c => c.value);
+
+            const obj = todosAlmacenes.find(a => a.nombre === nombreSel);
+            if (obj) {
+                obj.limiteCancelaciones = limite;
+                obj.formasPago = seleccionadas.length > 0 ? seleccionadas : null;
+            }
+
+            const saved = JSON.parse(localStorage.getItem('cenis_almacenes_config') || '{}');
+            saved[nombreSel] = { limiteCancelaciones: limite, formasPago: seleccionadas };
+            localStorage.setItem('cenis_almacenes_config', JSON.stringify(saved));
+
+            document.getElementById('msgCfgAlmacen').innerText = 'Guardado ✓';
+        }
+
+        cargarCfgAlmacen();
+
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
+            if (session) mostrarPanel(session.user.email);
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPass').value;
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) alert('Acceso denegado: ' + error.message);
+            else mostrarPanel(data.user.email);
+        });
+
+        document.getElementById('formNuevoUsuario').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('nuevoUsuarioEmail').value.trim();
+            const password = document.getElementById('nuevoUsuarioPass').value;
+            const msg = document.getElementById('msgUsuario');
+
+            const { error } = await supabaseClient.auth.signUp({ email, password });
+            if (error) {
+                msg.className = 'text-xs mt-2 font-semibold text-rose-600';
+                msg.innerText = 'Error al crear usuario: ' + error.message;
+            } else {
+                msg.className = 'text-xs mt-2 font-semibold text-emerald-700';
+                msg.innerText = `Usuario ${email} creado correctamente.`;
+                e.target.reset();
+            }
+        });
+
+        async function logout() {
+            await supabaseClient.auth.signOut();
+            location.reload();
+        }
+
+        function mostrarPanel(email) {
+            correoAdminActual = email;
+            document.getElementById('adminUserLabel').innerText = 'Sesión activa: ' + email;
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('adminView').classList.remove('hidden');
+            cargarHistorial('cenis_cancelaciones');
+        }
+
+        async function enviarReporteAdmin() {
+            const tipoRep = document.getElementById('repTipo').value;
+            const almRep = document.getElementById('repAlmacen').value;
+            let fIni = document.getElementById('repInicio').value;
+            let fFin = document.getElementById('repFin').value;
+
+            if (tipoRep === 'mensual') {
+                const hoy = new Date();
+                fIni = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+                fFin = hoy.toISOString().split('T')[0];
+            } else if (tipoRep === 'general') {
+                fIni = '';
+                fFin = '';
+            }
+
+            const aplicar = (q) => {
+                if (tipoRep === 'almacen' && almRep !== 'ALL') q = q.eq('centro_distribucion', almRep);
+                if (fIni) q = q.gte('fecha', fIni);
+                if (fFin) q = q.lte('fecha', fFin);
+                return q;
+            };
+
+            const [rCan, rCam] = await Promise.all([
+                aplicar(supabaseClient.from('cenis_cancelaciones').select('*')),
+                aplicar(supabaseClient.from('cenis_cambios_pago').select('*'))
+            ]);
+
+            const canData = rCan.data || [];
+            const camData = rCam.data || [];
+            const sumCan = canData.reduce((s, r) => s + Number(r.total || 0), 0);
+            const sumCam = camData.reduce((s, r) => s + Number(r.total || 0), 0);
+
+            const resumen =
+                `Tipo de reporte: ${tipoRep.toUpperCase()}\n` +
+                `Almacén: ${tipoRep === 'almacen' ? almRep : 'Todos'}\n` +
+                `Periodo: ${fIni || 'Inicio'} a ${fFin || 'Actual'}\n` +
+                `Cancelaciones: ${canData.length} ($${sumCan.toFixed(2)})\n` +
+                `Cambios de forma de pago: ${camData.length} ($${sumCam.toFixed(2)})`;
+
+            const destino = prompt('Correo electrónico destino:', EMAILJS_CONFIG.destinatarioDefault || '');
+            if (!destino) return;
+
+            if (EMAILJS_CONFIG.enabled && window.emailjs && EMAILJS_CONFIG.templateId) {
+                try {
+                    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+                        email: destino,
+                        nombre: 'Administración CENIS',
+                        periodo: tipoRep,
+                        pedidos: resumen
+                    });
+                    alert('Reporte enviado por correo a ' + destino);
+                    return;
+                } catch (err) {
+                    alert('No se pudo enviar directo por EmailJS, abriendo correo...');
+                }
+            }
+
+            window.location.href = `mailto:${encodeURIComponent(destino)}?subject=${encodeURIComponent('Reporte CENIS - ' + tipoRep)}&body=${encodeURIComponent(resumen)}`;
+        }
+
+        async function cargarHistorial(tabla) {
+            tablaActual = tabla;
+            document.getElementById('tablaActivaLabel').innerText = 'Mostrando: ' + (tabla === 'cenis_cancelaciones' ? 'Cancelaciones' : 'Cambios de Forma de Pago');
+
+            const { data, error } = await supabaseClient.from(tabla).select('*').order('fecha_registro_servidor', { ascending: false }).limit(200);
+            if (error) return alert(error.message);
+
+            const tbody = document.getElementById('tablaHistorialBody');
+            tbody.innerHTML = (data || []).map(row => {
+                const fechaManual = row.fecha_registro_manual || row.fecha || '-';
+                const fechaSrv = row.fecha_registro_servidor ? new Date(row.fecha_registro_servidor).toLocaleString('es-MX') : '-';
+                return `
+                    <tr>
+                        <td class="font-medium">${fechaManual}</td>
+                        <td class="text-slate-500">${fechaSrv}</td>
+                        <td>${row.registrado_por || row.usuario_mostrador || '-'}</td>
+                        <td class="font-bold">${row.num_venta}</td>
+                        <td>${row.centro_distribucion} <span class="text-slate-400">(${row.pais})</span></td>
+                        <td><span class="badge-monto">$${Number(row.total || 0).toFixed(2)}</span></td>
+                        <td>${row.motivo_cancelacion || row.descripcion_nota || '-'}</td>
+                        <td>${row.responsable}</td>
+                        <td class="text-right space-x-2">
+                            <button onclick="editarRegistro('${row.id}', '${row.num_venta}', '${row.responsable}')" class="text-blue-700 font-semibold hover:underline">Editar</button>
+                            <button onclick="eliminarRegistro('${row.id}')" class="text-rose-600 font-semibold hover:underline">Eliminar</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function editarRegistro(id, ventaActual, respActual) {
+            const nuevaVenta = prompt('Editar Núm. de Venta:', ventaActual);
+            if (nuevaVenta === null) return;
+            const nuevoResp = prompt('Editar Responsable:', respActual);
+            if (nuevoResp === null) return;
+
+            const { error } = await supabaseClient.from(tablaActual)
+                .update({ num_venta: nuevaVenta, responsable: nuevoResp })
+                .eq('id', id);
+
+            if (error) alert('Error al actualizar: ' + error.message);
+            else cargarHistorial(tablaActual);
+        }
+
+        async function eliminarRegistro(id) {
+            if (!confirm('¿Seguro que deseas eliminar este registro del historial?')) return;
+            const { error } = await supabaseClient.from(tablaActual).delete().eq('id', id);
+            if (error) alert(error.message);
+            else cargarHistorial(tablaActual);
+        }
+
+        function detectarUbicacion(centro) {
+            const limpio = (centro || '').trim().toUpperCase();
+            const nac = CATALOGOS.almacenes.Nacional.find(a => a.nombre.toUpperCase() === limpio);
+            if (nac) return { tipo_almacen: 'Nacional', pais: nac.pais };
+            const ext = CATALOGOS.almacenes.Extranjero.find(a => a.nombre.toUpperCase() === limpio);
+            if (ext) return { tipo_almacen: 'Extranjero', pais: ext.pais };
+            return { tipo_almacen: 'Nacional', pais: 'México' };
+        }
+
+        function excelDateToISO(val) {
+            if (!val) return new Date().toISOString().split('T')[0];
+            if (typeof val === 'number') {
+                const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+                return date.toISOString().split('T')[0];
+            }
+            return String(val).trim();
+        }
+
+        async function procesarExcel() {
+            const fileInput = document.getElementById('excelFile');
+            const tipoTabla = document.getElementById('excelTipoTabla').value;
+            const status = document.getElementById('excelStatus');
+
+            if (!fileInput.files.length) return alert('Selecciona un archivo Excel primero.');
+            const file = fileInput.files[0];
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+            const rows = XLSX.utils.sheet_to_json(sheet, { range: 2 });
+            if (!rows.length) return alert('No se encontraron filas de datos debajo de los encabezados.');
+
+            const ahoraIso = new Date().toISOString();
+
+            const registros = rows.filter(r => r['Núm de venta'] || r['Fecha']).map(r => {
+                const ubic = detectarUbicacion(r['Centro de distribución']);
+                const fechaManual = excelDateToISO(r['Fecha']);
+                const base = {
+                    fecha: fechaManual,
+                    fecha_registro_manual: fechaManual,
+                    fecha_registro_servidor: ahoraIso,
+                    registrado_por: correoAdminActual || 'Importación Excel',
+                    usuario_mostrador: String(r['Usuario de mostrador'] || ''),
+                    num_venta: String(r['Núm de venta'] || ''),
+                    id_embajador: String(r['ID de embajador'] || ''),
+                    nombre_embajador: String(r['Nombre del embajador'] || ''),
+                    tipo_almacen: ubic.tipo_almacen,
+                    pais: ubic.pais,
+                    centro_distribucion: String(r['Centro de distribución'] || ''),
+                    responsable: String(r['Responsable'] || 'ALEJANDRINA MEZA')
+                };
+
+                if (tipoTabla === 'cenis_cancelaciones') {
+                    return {
+                        ...base,
+                        forma_pago_1: r['Forma de pago 1'] || null,
+                        monto_1: parseFloat(r['Monto 1']) || 0,
+                        forma_pago_2: r['Forma de pago 2'] || null,
+                        monto_2: parseFloat(r['Monto 2']) || 0,
+                        motivo_cancelacion: String(r['Motivo de la cancelación'] || 'ERROR DE SISTEMA'),
+                        sustitucion: String(r['Sustitución'] || '')
+                    };
+                } else {
+                    return {
+                        ...base,
+                        forma_pago_corr_1: r['Forma de pago 1\n(corregido)'] || r['Forma de pago 1 (corregido)'] || null,
+                        monto_corr_1: parseFloat(r['Monto corregido 1']) || 0,
+                        forma_pago_corr_2: r['Forma de pago 2\n(corregido)'] || r['Forma de pago 2 (corregido)'] || null,
+                        monto_corr_2: parseFloat(r['Monto corregido 2']) || 0,
+                        forma_pago_corr_3: r['Forma de pago 3\n(corregido)'] || r['Forma de pago 3 (corregido)'] || null,
+                        monto_corr_3: parseFloat(r['Monto corregido 3']) || 0,
+                        forma_pago_ant_1: r['Forma de pago 1\n(anterior)'] || r['Forma de pago 1 (anterior)'] || null,
+                        monto_ant_1: parseFloat(r['Monto anterior 1']) || 0,
+                        forma_pago_ant_2: r['Forma de pago 2\n(anterior)'] || r['Forma de pago 2 (anterior)'] || null,
+                        monto_ant_2: parseFloat(r['Monto anterior 2']) || 0,
+                        forma_pago_ant_3: r['Forma de pago 3\n(anterior)'] || r['Forma de pago 3 (anterior)'] || null,
+                        monto_ant_3: parseFloat(r['Monto anterior 3']) || 0,
+                        descripcion_nota: String(r['Descripción de la nota'] || '')
+                    };
+                }
+            });
+
+            const { error } = await supabaseClient.from(tipoTabla).insert(registros);
+            if (error) {
+                status.innerHTML = `<span class="text-rose-600">Error al importar: ${error.message}</span>`;
+            } else {
+                status.innerHTML = `<span class="text-emerald-700">¡Éxito! Se agregaron ${registros.length} registros al historial.</span>`;
+                cargarHistorial(tipoTabla);
+            }
+        }
+    </script>
+</body>
+
+</html>
