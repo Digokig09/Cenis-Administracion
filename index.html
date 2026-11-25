@@ -10,6 +10,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
     <link rel="stylesheet" href="estilos_cenis.css">
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 </head>
 
 <body class="animar-entrada">
@@ -20,22 +21,23 @@
                 <img src="logo_ismerely.png" alt="Ismerely" class="logo-ismerely">
                 <div>
                     <h2 class="text-xl font-bold m-0">Acceso Administrador</h2>
-                    <p class="text-xs text-slate-500 m-0">Inicia sesión con tu cuenta registrada</p>
+                    <p class="text-xs text-slate-500 m-0">Exclusivo para administración autorizada</p>
                 </div>
             </div>
             <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-sm font-semibold">Correo electrónico</label>
                     <input type="email" id="adminEmail" required
-                        class="w-full border-2 border-pink-100 rounded-lg p-2.5 mt-1">
+                        class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2.5 mt-1 outline-none">
                 </div>
                 <div>
                     <label class="block text-sm font-semibold">Contraseña</label>
                     <input type="password" id="adminPass" required
-                        class="w-full border-2 border-pink-100 rounded-lg p-2.5 mt-1">
+                        class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2.5 mt-1 outline-none">
                 </div>
                 <button type="submit" class="btn-rosa w-full py-2.5 text-sm uppercase">Entrar al Panel</button>
             </form>
+            <p id="loginErrorMsg" class="text-xs text-rose-600 font-bold mt-3 hidden"></p>
         </div>
     </div>
 
@@ -43,64 +45,141 @@
     <div id="adminView" class="hidden">
         <header class="header-cenis">
             <div class="brand-box">
-                <img src="logo_ismerely.png" alt="Ismerely" class="logo-ismerely">
+                <img src="logo_ismerely.png" alt="Ismerely Mi Estilo de Vida" class="logo-ismerely">
                 <div>
                     <h1 class="text-xl font-bold m-0">Panel de Administración Total - CENIS</h1>
                     <p id="adminUserLabel" class="text-xs text-pink-100 m-0">Sesión activa</p>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <button onclick="enviarReporteAdmin()" class="btn-verde px-4 py-2 text-xs uppercase">✉️ Enviar
-                    Reporte</button>
-                <button onclick="logout()"
-                    class="bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-lg text-xs font-semibold">Cerrar
-                    Sesión</button>
+                <button onclick="logout()" class="btn-rosa px-3 py-2 text-xs uppercase">Cerrar Sesión</button>
             </div>
         </header>
 
         <div class="max-w-7xl mx-auto px-4 space-y-6">
-            <!-- Reportes Rápidos desde Administrador -->
-            <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
-                <h2 class="text-lg font-bold mb-2">Enviar Reporte por Correo</h2>
-                <p class="text-xs text-slate-500 mb-3">Genera un reporte mensual, por almacén, por periodo seleccionado
-                    o general.</p>
-                <div class="grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
+            <!-- AVISOS: CENTROS CON 5 O MÁS CANCELACIONES Y/O CAMBIOS -->
+            <div class="tarjeta-cenis" style="border-left-color: #e6007e;">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-3">
                     <div>
+                        <h2 class="text-lg font-bold m-0">Avisos de Incidencias (≥ 5 Cancelaciones y/o Cambios)</h2>
+                        <p class="text-xs text-slate-500 m-0">Detecta automáticamente los centros que alcanzan 5 o más
+                            cancelaciones, 5 o más cambios de pago o 5 o más en conjunto.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <input type="date" id="avisoFechaInicio" onchange="evaluarAvisosCinco()"
+                            class="border-2 border-pink-100 rounded-lg p-1.5 text-xs bg-white">
+                        <input type="date" id="avisoFechaFin" onchange="evaluarAvisosCinco()"
+                            class="border-2 border-pink-100 rounded-lg p-1.5 text-xs bg-white">
+                        <button type="button" onclick="evaluarAvisosCinco()"
+                            class="btn-oscuro px-3 py-2 text-xs uppercase">Actualizar</button>
+                        <button type="button" onclick="enviarCorreoAvisosCinco()"
+                            class="btn-rosa px-3 py-2 text-xs uppercase">✉️ Enviar Aviso</button>
+                    </div>
+                </div>
+
+                <div id="listaAvisosCinco" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    <p class="text-slate-400 col-span-full m-0">Cargando evaluación de centros...</p>
+                </div>
+            </div>
+            <!-- Reportes Ejecutivos por Correo, Link de Descarga y Excel -->
+            <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <div>
+                        <h2 class="text-lg font-bold m-0">Enviar Reporte Ejecutivo por Correo y Link de Excel</h2>
+                        <p class="text-xs text-slate-500 m-0">Selecciona uno o varios almacenes y un periodo; la vista
+                            previa y el tipo de reporte se actualizan automáticamente.</p>
+                    </div>
+                    <span id="badgeResumenFiltroRep"
+                        class="text-xs font-bold px-3 py-1 rounded-full bg-[#fff5fa] text-[#e6007e] border border-pink-200">
+                        Modo: Mensual
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mt-3">
+                    <div class="md:col-span-3">
                         <label class="block text-xs font-bold mb-1">Tipo de Reporte</label>
-                        <select id="repTipo" class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
-                            <option value="mensual">Mensual (Mes actual)</option>
-                            <option value="almacen">Por Almacén</option>
-                            <option value="periodo">Por Periodo Seleccionado</option>
+                        <select id="repTipo" onchange="onCambioTipoReporte()">
+                            <option value="diario">Diario (Hoy)</option>
+                            <option value="mensual" selected>Mensual (Mes actual)</option>
+                            <option value="almacen">Por Almacén(es)</option>
+                            <option value="periodo">Periodo Personalizado</option>
                             <option value="general">General (Todo)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold mb-1">Almacén (si aplica)</label>
-                        <select id="repAlmacen" class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
-                            <option value="ALL">Todos los almacenes</option>
-                        </select>
+
+                    <!-- Desplegable Multi-Almacén -->
+                    <div class="md:col-span-4 multiselect-wrapper" id="wrapperRepMultiAlmacenes">
+                        <label class="block text-xs font-bold mb-1">Almacenes (selección múltiple)</label>
+                        <button type="button" id="btnToggleRepMulti" onclick="toggleDropdownRepAlmacenes()"
+                            class="multiselect-trigger">
+                            <span id="textoResumenRepAlmacenes">Todos los almacenes (vacío = todos)</span>
+                            <span id="iconoFlechaRepMulti">▾</span>
+                        </button>
+
+                        <div id="dropdownRepAlmacenes" class="multiselect-dropdown hidden">
+                            <div class="flex justify-between items-center pb-2 mb-2 border-b border-pink-100 text-xs">
+                                <span class="font-bold text-[#5a4352]">Centros disponibles:</span>
+                                <div class="flex gap-3">
+                                    <button type="button" onclick="seleccionarTodosRepAlmacenes(true)"
+                                        class="font-bold text-[#e6007e] hover:underline">Todos</button>
+                                    <button type="button" onclick="seleccionarTodosRepAlmacenes(false)"
+                                        class="font-bold text-slate-600 hover:underline">Limpiar</button>
+                                </div>
+                            </div>
+                            <div id="contenedorRepMultiAlmacenes" class="multiselect-grid"></div>
+                        </div>
                     </div>
-                    <div>
+
+                    <div class="md:col-span-2">
                         <label class="block text-xs font-bold mb-1">Desde</label>
-                        <input type="date" id="repInicio"
+                        <input type="date" id="repInicio" onchange="onFiltroManualReporteChange('fecha')"
                             class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
                     </div>
-                    <div>
+
+                    <div class="md:col-span-2">
                         <label class="block text-xs font-bold mb-1">Hasta</label>
-                        <input type="date" id="repFin"
+                        <input type="date" id="repFin" onchange="onFiltroManualReporteChange('fecha')"
                             class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
                     </div>
-                    <button onclick="enviarReporteAdmin()" class="btn-rosa py-2 px-4 text-xs uppercase">Enviar
-                        Correo</button>
+
+                    <div class="md:col-span-1 flex">
+                        <button type="button" onclick="abrirModalEnvioReporte()" title="Preparar y Enviar"
+                            class="btn-rosa w-full py-2.5 px-3 text-xs uppercase whitespace-nowrap">
+                            ✉️ Enviar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Vista Previa en Vivo del Reporte -->
+                <div class="mt-4 bg-[#fdf9fb] border border-pink-100 rounded-xl p-3">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-2 text-xs">
+                        <span class="font-bold text-[#2b1926]">Vista previa en vivo del reporte actual:</span>
+                        <span id="repConteoVivo" class="font-semibold text-[#e6007e]">Calculando...</span>
+                    </div>
+                    <div class="overflow-x-auto max-h-48 overflow-y-auto">
+                        <table class="tabla-ismerely text-xs">
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Fecha</th>
+                                    <th>Almacén</th>
+                                    <th>Núm. Venta</th>
+                                    <th>Detalle / Motivo</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tablaPreviewReporteBody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- Usuarios + Límite y Formas de Pago por Almacén -->
+            <!-- Usuarios + Reglas por Almacén -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="tarjeta-cenis">
-                    <h2 class="text-lg font-bold mb-2">Agregar Usuario para Ingresar</h2>
-                    <p class="text-xs text-slate-500 mb-4">Crea una cuenta en Supabase Auth para operadores o
-                        administradores.</p>
+                    <h2 class="text-lg font-bold mb-2">Agregar Usuario Operador</h2>
+                    <p class="text-xs text-slate-500 mb-4">Crea cuentas para que el equipo pueda subir información en la
+                        página de captura (sin acceso a este panel).</p>
                     <form id="formNuevoUsuario" class="space-y-3">
                         <input type="email" id="nuevoUsuarioEmail" placeholder="correo@empresa.com" required
                             class="w-full border-2 border-pink-100 rounded-lg p-2 text-sm">
@@ -114,10 +193,8 @@
                 <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
                     <h2 class="text-lg font-bold mb-2">Límite de Cancelaciones y Formas de Pago por Almacén</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <select id="cfgAlmacenSelect" onchange="cargarCfgAlmacen()"
-                            class="border-2 border-pink-100 rounded-lg p-2 text-sm bg-white"></select>
-                        <input type="number" id="cfgLimiteCancel" min="0"
-                            placeholder="Límite mensual cancelaciones (0 = sin límite)"
+                        <select id="cfgAlmacenSelect" onchange="cargarCfgAlmacen()"></select>
+                        <input type="number" id="cfgLimiteCancel" min="0" placeholder="Límite mensual (0 = sin límite)"
                             class="border-2 border-pink-100 rounded-lg p-2 text-sm">
                     </div>
                     <label class="block text-xs font-bold mb-1">Formas de pago habilitadas para este almacén:</label>
@@ -129,7 +206,7 @@
                 </div>
             </div>
 
-            <!-- Carga Masiva Excel -->
+            <!-- Carga Masiva Excel con botón estilizado -->
             <div class="tarjeta-cenis">
                 <h2 class="text-lg font-bold mb-1">Importar desde Excel (Machotes 2027)</h2>
                 <p class="text-xs text-slate-500 mb-4">Lee encabezados desde la fila 3 y agrega los registros al
@@ -137,16 +214,14 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1">Tipo de archivo</label>
-                        <select id="excelTipoTabla"
-                            class="w-full border-2 border-pink-100 rounded-lg p-2 bg-white text-sm">
+                        <select id="excelTipoTabla">
                             <option value="cenis_cancelaciones">Formato de Cancelaciones</option>
                             <option value="cenis_cambios_pago">Formato de Cambios de Forma de Pago</option>
                         </select>
                     </div>
                     <div>
                         <label class="block text-xs font-bold uppercase mb-1">Archivo .xlsx</label>
-                        <input type="file" id="excelFile" accept=".xlsx, .xls"
-                            class="w-full border-2 border-pink-100 rounded-lg p-1.5 bg-slate-50 text-sm">
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="input-file-ismerely">
                     </div>
                     <button onclick="procesarExcel()" class="btn-rosa py-2.5 px-4 text-xs uppercase">Subir e Integrar al
                         Historial</button>
@@ -154,9 +229,9 @@
                 <div id="excelStatus" class="mt-3 text-sm font-medium"></div>
             </div>
 
-            <!-- Historial -->
+            <!-- Auditoría y Búsqueda de Historial -->
             <div class="tarjeta-cenis" style="border-left-color: var(--ismerely-verde);">
-                <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
                     <div class="flex gap-2">
                         <button onclick="cargarHistorial('cenis_cancelaciones')"
                             class="btn-oscuro px-4 py-2 text-xs">Historial Cancelaciones</button>
@@ -164,6 +239,23 @@
                             class="btn-verde px-4 py-2 text-xs">Historial Cambios de Pago</button>
                     </div>
                     <span id="tablaActivaLabel" class="text-xs font-bold text-slate-500">Mostrando: Cancelaciones</span>
+                </div>
+
+                <!-- Buscador por usuario, fecha, venta, almacén o motivo -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 bg-[#fdf9fb] p-3 rounded-xl border border-pink-100">
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold mb-1">Buscar en historial (usuario que registró, venta,
+                            almacén, embajador o motivo)</label>
+                        <input type="text" id="buscadorHistorial" oninput="filtrarHistorialLocal()"
+                            placeholder="Ej. operador@ismerely.com, 49844, IRAPUATO..."
+                            class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2 text-xs bg-white outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold mb-1">Filtrar por fecha manual</label>
+                        <input type="date" id="buscadorFecha" onchange="filtrarHistorialLocal()"
+                            class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2 text-xs bg-white outline-none">
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -177,7 +269,6 @@
                                 <th>Almacén</th>
                                 <th>Total</th>
                                 <th>Detalle / Motivo</th>
-                                <th>Responsable</th>
                                 <th class="text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -185,6 +276,140 @@
                     </table>
                 </div>
             </div>
+        </div>
+        <!-- DISPARADOR DISCRETO PARA HERRAMIENTA OCULTA -->
+        <div class="pt-4 flex justify-center">
+            <button type="button" onclick="togglePanelExportarExcel()"
+                class="text-xs font-semibold text-[#7a5c70] hover:text-[#e6007e] underline transition">
+                Herramientas avanzadas · Exportar a Excel
+            </button>
+        </div>
+
+        <!-- PANEL OCULTO DE EXPORTACIÓN A EXCEL -->
+        <div id="panelExportarExcelOculto" class="tarjeta-cenis hidden"
+            style="border-left-color: var(--ismerely-oscuro);">
+            <div class="flex justify-between items-center mb-3">
+                <div>
+                    <h2 class="text-base font-bold m-0">Exportar Registros a Excel (Orden de Machote)</h2>
+                    <p class="text-xs text-slate-500 m-0">Filtra por rango de fechas y almacenes específicos; respeta el
+                        orden original de columnas.</p>
+                </div>
+                <button type="button" onclick="togglePanelExportarExcel()"
+                    class="text-xs font-bold text-slate-500 hover:text-[#2b1926]">Ocultar ▴</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase mb-1">Formato / Tabla</label>
+                    <select id="expTablaExcel">
+                        <option value="cenis_cancelaciones">Formato de Cancelaciones</option>
+                        <option value="cenis_cambios_pago">Formato de Cambios de Forma de Pago</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase mb-1">Fecha Inicio</label>
+                    <input type="date" id="expFechaInicio"
+                        class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase mb-1">Fecha Fin</label>
+                    <input type="date" id="expFechaFin"
+                        class="w-full border-2 border-pink-100 rounded-lg p-2 text-xs bg-white">
+                </div>
+            </div>
+
+            <div class="bg-[#fdf9fb] border border-pink-200 rounded-xl p-3 mb-4">
+                <div class="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <span class="text-xs font-bold uppercase">Almacenes específicos (vacío = todos):</span>
+                    <div class="flex gap-3 text-xs">
+                        <button type="button" onclick="marcarAlmacenesExport(true)"
+                            class="font-bold text-[#e6007e] hover:underline">Todos</button>
+                        <button type="button" onclick="marcarAlmacenesExport(false)"
+                            class="font-bold text-slate-600 hover:underline">Limpiar</button>
+                    </div>
+                </div>
+                <div id="expListaAlmacenes"
+                    class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-40 overflow-y-auto"></div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <span id="expEstadoExcel" class="text-xs font-semibold text-slate-500">Listo para generar archivo
+                    .xlsx</span>
+                <button type="button" onclick="generarExcelFiltrado()"
+                    class="btn-verde px-5 py-2.5 text-xs uppercase tracking-wider">
+                    Descargar Excel (.xlsx)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETALLE UNO POR UNO -->
+    <div id="modalDetalleRegistro" class="hidden fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4">
+        <div class="tarjeta-cenis max-w-2xl w-full max-h-[90vh] overflow-y-auto animar-entrada">
+            <div class="flex justify-between items-center border-b border-pink-100 pb-3 mb-4">
+                <div>
+                    <h3 id="modalTitulo" class="text-lg font-bold m-0">Detalle del Registro</h3>
+                    <p id="modalSubtitulo" class="text-xs text-slate-500 m-0"></p>
+                </div>
+                <button onclick="cerrarModalDetalle()" class="btn-oscuro px-3 py-1 text-xs">✕ Cerrar</button>
+            </div>
+
+            <div id="modalContenidoCampos" class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs mb-5"></div>
+
+            <div class="flex justify-between items-center pt-3 border-t border-pink-100">
+                <button type="button" onclick="navegarDetalle(-1)" class="btn-oscuro px-4 py-2 text-xs">←
+                    Anterior</button>
+                <span id="modalContador" class="text-xs font-bold text-[#e6007e]">1 de 1</span>
+                <button type="button" onclick="navegarDetalle(1)" class="btn-verde px-4 py-2 text-xs">Siguiente
+                    →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PERSONALIZAR ENVÍO DE REPORTE -->
+    <div id="modalEnvioReporte" class="hidden fixed inset-0 bg-black/55 z-50 flex items-center justify-center p-4">
+        <div class="tarjeta-cenis max-w-lg w-full animar-entrada" style="border-left-color: #e6007e;">
+            <div class="flex justify-between items-center border-b border-pink-100 pb-3 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold m-0">Personalizar Envío de Reporte</h3>
+                    <p id="subtituloModalReporte" class="text-xs text-slate-500 m-0">Configura el destinatario antes de
+                        enviar</p>
+                </div>
+                <button type="button" onclick="cerrarModalEnvioReporte()"
+                    class="btn-oscuro px-3 py-1 text-xs">✕</button>
+            </div>
+
+            <form id="formConfirmarEnvioReporte" class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-bold mb-1">Nombre del destinatario (saludo personalizado)</label>
+                    <input type="text" id="envioNombreDest" required
+                        placeholder="Ej. Lic. Alejandrina Meza / Dirección General"
+                        class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2.5 outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Correo electrónico destino</label>
+                    <input type="email" id="envioCorreoDest" required placeholder="correo@empresa.com"
+                        class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2.5 outline-none">
+                </div>
+                <div>
+                    <label class="block font-bold mb-1">Nota o comentario adicional (opcional)</label>
+                    <textarea id="envioNotaExtra" rows="2"
+                        placeholder="Ej. Se anexa corte correspondiente al cierre de semana..."
+                        class="w-full border-2 border-pink-100 focus:border-[#e6007e] rounded-lg p-2 outline-none"></textarea>
+                </div>
+                <label class="flex items-center gap-2 pt-1 cursor-pointer">
+                    <input type="checkbox" id="envioDescargarExcel" checked class="accent-[#8cc63f]">
+                    <span>Descargar automáticamente el <strong>Excel Ejecutivo (.xlsx) con tablas y gráficas</strong>
+                        para adjuntar</span>
+                </label>
+
+                <div class="flex justify-end gap-2 pt-3 border-t border-pink-100">
+                    <button type="button" onclick="cerrarModalEnvioReporte()"
+                        class="btn-oscuro px-4 py-2 uppercase">Cancelar</button>
+                    <button type="submit" id="btnConfirmarEnvio" class="btn-verde px-5 py-2 uppercase">Enviar Correo y
+                        Generar Excel</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -196,14 +421,21 @@
 
         let tablaActual = 'cenis_cancelaciones';
         let correoAdminActual = '';
+        let registrosCargados = [];
+        let registrosFiltrados = [];
+        let indiceModalActual = 0;
+
+        function esCorreoAdmin(email) {
+            if (!email) return false;
+            return ADMIN_EMAILS.map(e => e.trim().toLowerCase()).includes(email.trim().toLowerCase());
+        }
 
         const todosAlmacenes = [...CATALOGOS.almacenes.Nacional, ...CATALOGOS.almacenes.Extranjero].filter(a => a.nombre);
         const opcionesAlmacenesHtml = todosAlmacenes.map(a => `<option value="${a.nombre}">${a.nombre} (${a.pais})</option>`).join('');
         document.getElementById('cfgAlmacenSelect').innerHTML = opcionesAlmacenesHtml;
-        document.getElementById('repAlmacen').innerHTML += opcionesAlmacenesHtml;
 
         document.getElementById('cfgFormasPagoBoxes').innerHTML = CATALOGOS.formasPagoDefault
-            .map(fp => `<label class="flex items-center gap-1.5"><input type="checkbox" class="chk-fp" value="${fp}"> ${fp}</label>`).join('');
+            .map(fp => `<label class="flex items-center gap-1.5"><input type="checkbox" class="chk-fp accent-[#8cc63f]" value="${fp}"> ${fp}</label>`).join('');
 
         function cargarCfgAlmacen() {
             const nombreSel = document.getElementById('cfgAlmacenSelect').value;
@@ -235,17 +467,42 @@
 
         cargarCfgAlmacen();
 
+        async function validarYMostrarAdmin(email) {
+            const errBox = document.getElementById('loginErrorMsg');
+            if (!esCorreoAdmin(email)) {
+                await supabaseClient.auth.signOut();
+                errBox.innerText = 'Acceso denegado: este usuario no tiene permisos de administrador.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            correoAdminActual = email;
+            document.getElementById('adminUserLabel').innerText = 'Administradora activa: ' + email;
+            document.getElementById('loginView').classList.add('hidden');
+            document.getElementById('adminView').classList.remove('hidden');
+            cargarHistorial('cenis_cancelaciones');
+            evaluarAvisosCinco();
+            actualizarVistaPreviaReporte();
+        }
+
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
-            if (session) mostrarPanel(session.user.email);
+            if (session?.user?.email) {
+                validarYMostrarAdmin(session.user.email);
+            }
         });
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('adminEmail').value;
+            const email = document.getElementById('adminEmail').value.trim();
             const password = document.getElementById('adminPass').value;
             const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            if (error) alert('Acceso denegado: ' + error.message);
-            else mostrarPanel(data.user.email);
+            if (error) {
+                const errBox = document.getElementById('loginErrorMsg');
+                errBox.innerText = 'Error de acceso: ' + error.message;
+                errBox.classList.remove('hidden');
+            } else {
+                validarYMostrarAdmin(data.user.email);
+            }
         });
 
         document.getElementById('formNuevoUsuario').addEventListener('submit', async (e) => {
@@ -260,7 +517,7 @@
                 msg.innerText = 'Error al crear usuario: ' + error.message;
             } else {
                 msg.className = 'text-xs mt-2 font-semibold text-emerald-700';
-                msg.innerText = `Usuario ${email} creado correctamente.`;
+                msg.innerText = `Usuario operador ${email} creado correctamente.`;
                 e.target.reset();
             }
         });
@@ -270,102 +527,711 @@
             location.reload();
         }
 
-        function mostrarPanel(email) {
-            correoAdminActual = email;
-            document.getElementById('adminUserLabel').innerText = 'Sesión activa: ' + email;
-            document.getElementById('loginView').classList.add('hidden');
-            document.getElementById('adminView').classList.remove('hidden');
-            cargarHistorial('cenis_cancelaciones');
+        // ==========================================
+        // REPORTES EJECUTIVOS (MULTI-ALMACÉN + EXCEL + LINK)
+        // ==========================================
+        let repAlmacenesSeleccionados = new Set();
+
+        function renderOpcionesRepMultiAlmacenes() {
+            const cont = document.getElementById('contenedorRepMultiAlmacenes');
+            if (!cont) return;
+            cont.innerHTML = todosAlmacenes.map(a => {
+                const checked = repAlmacenesSeleccionados.has(a.nombre);
+                return `
+                    <label class="chip-opcion ${checked ? 'seleccionado' : ''}">
+                        <input type="checkbox" value="${a.nombre}" ${checked ? 'checked' : ''} onchange="onToggleRepAlmacen(this)">
+                        <span class="truncate" title="${a.nombre}">${a.nombre}</span>
+                    </label>
+                `;
+            }).join('');
+            actualizarEtiquetaRepAlmacenes();
         }
 
-        async function enviarReporteAdmin() {
-            const tipoRep = document.getElementById('repTipo').value;
-            const almRep = document.getElementById('repAlmacen').value;
-            let fIni = document.getElementById('repInicio').value;
-            let fFin = document.getElementById('repFin').value;
+        function actualizarEtiquetaRepAlmacenes() {
+            const span = document.getElementById('textoResumenRepAlmacenes');
+            if (!span) return;
+            if (repAlmacenesSeleccionados.size === 0) {
+                span.innerText = `Todos los almacenes (${todosAlmacenes.length})`;
+            } else if (repAlmacenesSeleccionados.size === 1) {
+                span.innerText = Array.from(repAlmacenesSeleccionados)[0];
+            } else {
+                span.innerText = `${repAlmacenesSeleccionados.size} almacenes seleccionados`;
+            }
+        }
 
-            if (tipoRep === 'mensual') {
-                const hoy = new Date();
-                fIni = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-                fFin = hoy.toISOString().split('T')[0];
-            } else if (tipoRep === 'general') {
-                fIni = '';
-                fFin = '';
+        function onToggleRepAlmacen(chk) {
+            const label = chk.closest('.chip-opcion');
+            if (chk.checked) {
+                repAlmacenesSeleccionados.add(chk.value);
+                label?.classList.add('seleccionado');
+            } else {
+                repAlmacenesSeleccionados.delete(chk.value);
+                label?.classList.remove('seleccionado');
+            }
+            actualizarEtiquetaRepAlmacenes();
+            onFiltroManualReporteChange('almacen');
+        }
+
+        function seleccionarTodosRepAlmacenes(marcar) {
+            if (marcar) {
+                todosAlmacenes.forEach(a => repAlmacenesSeleccionados.add(a.nombre));
+            } else {
+                repAlmacenesSeleccionados.clear();
+            }
+            renderOpcionesRepMultiAlmacenes();
+            onFiltroManualReporteChange('almacen');
+        }
+
+        function toggleDropdownRepAlmacenes() {
+            const dd = document.getElementById('dropdownRepAlmacenes');
+            const btn = document.getElementById('btnToggleRepMulti');
+            const flecha = document.getElementById('iconoFlechaRepMulti');
+            const oculto = dd.classList.toggle('hidden');
+            btn.classList.toggle('activo', !oculto);
+            flecha.innerText = oculto ? '▾' : '▴';
+        }
+
+        document.addEventListener('click', (e) => {
+            const wrap = document.getElementById('wrapperRepMultiAlmacenes');
+            if (wrap && !wrap.contains(e.target)) {
+                document.getElementById('dropdownRepAlmacenes')?.classList.add('hidden');
+                document.getElementById('btnToggleRepMulti')?.classList.remove('activo');
+                const flecha = document.getElementById('iconoFlechaRepMulti');
+                if (flecha) flecha.innerText = '▾';
+            }
+        });
+
+        function actualizarDefinicionReporteVisual() {
+            const sel = document.getElementById('repTipo');
+            const badge = document.getElementById('badgeResumenFiltroRep');
+            const fIni = document.getElementById('repInicio').value;
+            const fFin = document.getElementById('repFin').value;
+            const cantAlm = repAlmacenesSeleccionados.size;
+
+            const textosTipo = {
+                diario: 'Diario (Hoy)',
+                mensual: 'Mensual (Mes actual)',
+                almacen: 'Por Almacén(es)',
+                periodo: 'Periodo Personalizado',
+                general: 'General (Histórico completo)'
+            };
+
+            const txtTipo = textosTipo[sel.value] || sel.value;
+            const txtAlm = cantAlm > 0 ? `${cantAlm} almacén(es)` : 'Todos los almacenes';
+            const txtFecha = (fIni || fFin) ? `${fIni || 'Inicio'} → ${fFin || 'Hoy'}` : 'Todas las fechas';
+
+            if (badge) {
+                badge.innerText = `Definición: ${txtTipo} · ${txtAlm} · ${txtFecha}`;
+            }
+            if (sel._syncUI) sel._syncUI();
+        }
+
+        function onFiltroManualReporteChange(origen) {
+            const sel = document.getElementById('repTipo');
+            const fIni = document.getElementById('repInicio').value;
+            const fFin = document.getElementById('repFin').value;
+            const tieneAlmacenes = repAlmacenesSeleccionados.size > 0;
+
+            if (origen === 'fecha') {
+                const hoyIso = new Date().toISOString().split('T')[0];
+                const inicioMesIso = `${hoyIso.slice(0, 7)}-01`;
+                if (fIni === hoyIso && fFin === hoyIso) {
+                    sel.value = 'diario';
+                } else if (fIni === inicioMesIso && fFin === hoyIso) {
+                    sel.value = 'mensual';
+                } else if (fIni || fFin) {
+                    sel.value = 'periodo';
+                } else if (tieneAlmacenes) {
+                    sel.value = 'almacen';
+                } else {
+                    sel.value = 'general';
+                }
+            } else if (origen === 'almacen') {
+                if (tieneAlmacenes && sel.value === 'general') {
+                    sel.value = 'almacen';
+                } else if (!tieneAlmacenes && sel.value === 'almacen') {
+                    sel.value = (fIni || fFin) ? 'periodo' : 'general';
+                }
             }
 
+            actualizarDefinicionReporteVisual();
+            actualizarVistaPreviaReporte();
+        }
+
+        function onCambioTipoReporte() {
+            const tipo = document.getElementById('repTipo').value;
+            const hoy = new Date();
+            const hoyIso = hoy.toISOString().split('T')[0];
+            const inpIni = document.getElementById('repInicio');
+            const inpFin = document.getElementById('repFin');
+
+            if (tipo === 'diario') {
+                inpIni.value = hoyIso;
+                inpFin.value = hoyIso;
+            } else if (tipo === 'mensual') {
+                inpIni.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
+                inpFin.value = hoyIso;
+            } else if (tipo === 'general') {
+                inpIni.value = '';
+                inpFin.value = '';
+                repAlmacenesSeleccionados.clear();
+                renderOpcionesRepMultiAlmacenes();
+            }
+
+            actualizarDefinicionReporteVisual();
+            actualizarVistaPreviaReporte();
+        }
+
+        async function consultarDatosReporteActual() {
+            const almacenesSel = Array.from(repAlmacenesSeleccionados);
+            const fIni = document.getElementById('repInicio').value;
+            const fFin = document.getElementById('repFin').value;
+
             const aplicar = (q) => {
-                if (tipoRep === 'almacen' && almRep !== 'ALL') q = q.eq('centro_distribucion', almRep);
+                if (almacenesSel.length > 0) q = q.in('centro_distribucion', almacenesSel);
                 if (fIni) q = q.gte('fecha', fIni);
                 if (fFin) q = q.lte('fecha', fFin);
                 return q;
             };
 
             const [rCan, rCam] = await Promise.all([
-                aplicar(supabaseClient.from('cenis_cancelaciones').select('*')),
-                aplicar(supabaseClient.from('cenis_cambios_pago').select('*'))
+                aplicar(supabaseClient.from('cenis_cancelaciones').select('*').order('fecha', { ascending: false })),
+                aplicar(supabaseClient.from('cenis_cambios_pago').select('*').order('fecha', { ascending: false }))
             ]);
 
-            const canData = rCan.data || [];
-            const camData = rCam.data || [];
+            return {
+                canData: rCan.data || [],
+                camData: rCam.data || [],
+                almacenesSel,
+                fIni,
+                fFin
+            };
+        }
+
+        async function actualizarVistaPreviaReporte() {
+            const tbody = document.getElementById('tablaPreviewReporteBody');
+            const conteoLbl = document.getElementById('repConteoVivo');
+            if (!tbody || !conteoLbl) return;
+
+            conteoLbl.innerText = 'Actualizando tabla...';
+            const { canData, camData } = await consultarDatosReporteActual();
+
             const sumCan = canData.reduce((s, r) => s + Number(r.total || 0), 0);
             const sumCam = camData.reduce((s, r) => s + Number(r.total || 0), 0);
 
-            const resumen =
-                `Tipo de reporte: ${tipoRep.toUpperCase()}\n` +
-                `Almacén: ${tipoRep === 'almacen' ? almRep : 'Todos'}\n` +
-                `Periodo: ${fIni || 'Inicio'} a ${fFin || 'Actual'}\n` +
-                `Cancelaciones: ${canData.length} ($${sumCan.toFixed(2)})\n` +
-                `Cambios de forma de pago: ${camData.length} ($${sumCam.toFixed(2)})`;
+            conteoLbl.innerText =
+                `Cancelaciones: ${canData.length} ($${sumCan.toLocaleString('es-MX', { minimumFractionDigits: 2 })}) · ` +
+                `Cambios: ${camData.length} ($${sumCam.toLocaleString('es-MX', { minimumFractionDigits: 2 })})`;
 
-            const destino = prompt('Correo electrónico destino:', EMAILJS_CONFIG.destinatarioDefault || '');
-            if (!destino) return;
+            const filas = [
+                ...canData.map(r => ({ ...r, _tipo: 'Cancelación', _det: r.motivo_cancelacion || '-' })),
+                ...camData.map(r => ({ ...r, _tipo: 'Cambio Pago', _det: r.descripcion_nota || 'Cambio de forma de pago' }))
+            ].slice(0, 30);
 
-            if (EMAILJS_CONFIG.enabled && window.emailjs && EMAILJS_CONFIG.templateId) {
-                try {
-                    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
-                        email: destino,
-                        nombre: 'Administración CENIS',
-                        periodo: tipoRep,
-                        pedidos: resumen
-                    });
-                    alert('Reporte enviado por correo a ' + destino);
-                    return;
-                } catch (err) {
-                    alert('No se pudo enviar directo por EmailJS, abriendo correo...');
-                }
+            if (!filas.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-slate-400 py-3">Sin registros para los filtros seleccionados.</td></tr>`;
+                return;
             }
 
-            window.location.href = `mailto:${encodeURIComponent(destino)}?subject=${encodeURIComponent('Reporte CENIS - ' + tipoRep)}&body=${encodeURIComponent(resumen)}`;
+            tbody.innerHTML = filas.map(r => `
+                <tr>
+                    <td class="font-bold">${r._tipo}</td>
+                    <td>${r.fecha_registro_manual || r.fecha || '-'}</td>
+                    <td>${r.centro_distribucion || '-'}</td>
+                    <td>${r.num_venta || '-'}</td>
+                    <td>${r._det}</td>
+                    <td><span class="badge-monto">$${Number(r.total || 0).toFixed(2)}</span></td>
+                </tr>
+            `).join('');
         }
 
+        renderOpcionesRepMultiAlmacenes();
+        onCambioTipoReporte();
+
+        function abrirModalEnvioReporte() {
+            const tipo = document.getElementById('repTipo').value;
+            const fIni = document.getElementById('repInicio').value;
+            const fFin = document.getElementById('repFin').value;
+            const cantAlm = repAlmacenesSeleccionados.size;
+
+            if (tipo === 'periodo' && (!fIni || !fFin)) {
+                return alert('Selecciona las fechas "Desde" y "Hasta" para el periodo personalizado.');
+            }
+            if (tipo === 'almacen' && cantAlm === 0) {
+                return alert('Selecciona al menos un almacén en el desplegable.');
+            }
+
+            document.getElementById('subtituloModalReporte').innerText =
+                document.getElementById('badgeResumenFiltroRep').innerText;
+            document.getElementById('envioCorreoDest').value = EMAILJS_CONFIG.destinatarioDefault || '';
+            document.getElementById('modalEnvioReporte').classList.remove('hidden');
+        }
+
+        function cerrarModalEnvioReporte() {
+            document.getElementById('modalEnvioReporte').classList.add('hidden');
+        }
+
+        function construirGraficoCanvasBase64(titulo, labels, valores, colorBarra = '#e6007e') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 720;
+            canvas.height = 360;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#2b1926';
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(titulo, 24, 34);
+
+            if (!labels.length) {
+                ctx.fillStyle = '#7a5c70';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('Sin datos en el periodo seleccionado', 24, 80);
+                return canvas.toDataURL('image/png');
+            }
+
+            const maxVal = Math.max(...valores, 1);
+            const chartLeft = 220;
+            const chartRight = 680;
+            const chartTop = 58;
+            const rowHeight = Math.min(34, Math.floor(270 / labels.length));
+
+            labels.forEach((lbl, i) => {
+                const y = chartTop + i * rowHeight;
+                const val = valores[i];
+                const barW = Math.max(4, Math.round((val / maxVal) * (chartRight - chartLeft)));
+
+                ctx.fillStyle = '#2b1926';
+                ctx.font = '12px sans-serif';
+                const textoCorto = lbl.length > 28 ? lbl.slice(0, 26) + '…' : lbl;
+                ctx.fillText(textoCorto, 24, y + 16);
+
+                ctx.fillStyle = colorBarra;
+                ctx.fillRect(chartLeft, y + 3, barW, Math.max(14, rowHeight - 10));
+
+                ctx.fillStyle = '#2b1926';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(String(val), chartLeft + barW + 8, y + 16);
+            });
+
+            return canvas.toDataURL('image/png');
+        }
+
+        async function generarExcelEjecutivoConGraficas({ etiquetaPeriodo, textoAlmacenes, canData, camData, porCentro, porMotivo, descargarLocal }) {
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Sistema CENIS · Ismerely';
+            workbook.created = new Date();
+
+            const wsResumen = workbook.addWorksheet('Resumen Ejecutivo');
+            wsResumen.columns = [
+                { width: 34 },
+                { width: 18 },
+                { width: 18 },
+                { width: 20 },
+                { width: 22 }
+            ];
+
+            wsResumen.mergeCells('A1:E1');
+            const titleCell = wsResumen.getCell('A1');
+            titleCell.value = `ISMERELY · REPORTE EJECUTIVO CENIS (${etiquetaPeriodo.toUpperCase()})`;
+            titleCell.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+            titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B1926' } };
+            titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+            wsResumen.getRow(1).height = 30;
+
+            wsResumen.addRow(['Filtro de Almacén:', textoAlmacenes]);
+            wsResumen.addRow(['Fecha de Generación:', new Date().toLocaleString('es-MX')]);
+            wsResumen.addRow([]);
+
+            const sumCan = canData.reduce((s, r) => s + Number(r.total || 0), 0);
+            const sumCam = camData.reduce((s, r) => s + Number(r.total || 0), 0);
+
+            const hdrKpi = wsResumen.addRow(['Indicador', 'Cantidad', 'Monto Total ($)', '', '']);
+            hdrKpi.eachCell((c, col) => {
+                if (col <= 3) {
+                    c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6007E' } };
+                }
+            });
+
+            wsResumen.addRow(['Cancelaciones', canData.length, sumCan]);
+            wsResumen.addRow(['Cambios de Forma de Pago', camData.length, sumCam]);
+            const rowTot = wsResumen.addRow(['TOTAL GENERAL', canData.length + camData.length, sumCan + sumCam]);
+            rowTot.font = { bold: true };
+            wsResumen.getColumn(3).numFmt = '$#,##0.00';
+
+            wsResumen.addRow([]);
+            const hdrCentros = wsResumen.addRow(['Centro de Distribución', 'Cancelaciones', 'Cambios Pago', 'Total Incidencias', 'Monto Total ($)']);
+            hdrCentros.eachCell(c => {
+                c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B1926' } };
+            });
+
+            porCentro.forEach(c => {
+                const r = wsResumen.addRow([c.centro, c.cancelaciones, c.cambios, c.total, c.monto]);
+                r.getCell(5).numFmt = '$#,##0.00';
+            });
+
+            const topCentros = porCentro.slice(0, 8);
+            const imgCentrosB64 = construirGraficoCanvasBase64(
+                'Top Centros por Total de Incidencias',
+                topCentros.map(c => c.centro),
+                topCentros.map(c => c.total),
+                '#e6007e'
+            );
+
+            const topMotivos = porMotivo.slice(0, 8);
+            const imgMotivosB64 = construirGraficoCanvasBase64(
+                'Principales Motivos de Cancelación',
+                topMotivos.map(m => m.motivo),
+                topMotivos.map(m => m.conteo),
+                '#8cc63f'
+            );
+
+            const imgId1 = workbook.addImage({ base64: imgCentrosB64, extension: 'png' });
+            const imgId2 = workbook.addImage({ base64: imgMotivosB64, extension: 'png' });
+
+            const filaInicioGraficas = wsResumen.rowCount + 2;
+            wsResumen.addImage(imgId1, {
+                tl: { col: 0, row: filaInicioGraficas },
+                ext: { width: 520, height: 260 }
+            });
+            wsResumen.addImage(imgId2, {
+                tl: { col: 0, row: filaInicioGraficas + 15 },
+                ext: { width: 520, height: 260 }
+            });
+
+            const wsCan = workbook.addWorksheet('Cancelaciones');
+            wsCan.addRow(['Fecha', 'Mostrador', 'Núm. Venta', 'ID Embajador', 'Embajador', 'Centro', 'Forma Pago 1', 'Monto 1', 'Forma Pago 2', 'Monto 2', 'Total', 'Motivo', 'Responsable']);
+            wsCan.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsCan.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6007E' } };
+            canData.forEach(r => {
+                wsCan.addRow([
+                    r.fecha_registro_manual || r.fecha || '',
+                    r.usuario_mostrador || '',
+                    r.num_venta || '',
+                    r.id_embajador || '',
+                    r.nombre_embajador || '',
+                    r.centro_distribucion || '',
+                    r.forma_pago_1 || '',
+                    Number(r.monto_1 || 0),
+                    r.forma_pago_2 || '',
+                    Number(r.monto_2 || 0),
+                    Number(r.total || 0),
+                    r.motivo_cancelacion || '',
+                    r.responsable || ''
+                ]);
+            });
+
+            const wsCam = workbook.addWorksheet('Cambios de Pago');
+            wsCam.addRow(['Fecha', 'Mostrador', 'Núm. Venta', 'ID Embajador', 'Embajador', 'Centro', 'Pago Corr. 1', 'Monto Corr. 1', 'Pago Ant. 1', 'Monto Ant. 1', 'Total', 'Descripción', 'Responsable']);
+            wsCam.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsCam.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF8CC63F' } };
+            camData.forEach(r => {
+                wsCam.addRow([
+                    r.fecha_registro_manual || r.fecha || '',
+                    r.usuario_mostrador || '',
+                    r.num_venta || '',
+                    r.id_embajador || '',
+                    r.nombre_embajador || '',
+                    r.centro_distribucion || '',
+                    r.forma_pago_corr_1 || '',
+                    Number(r.monto_corr_1 || 0),
+                    r.forma_pago_ant_1 || '',
+                    Number(r.monto_ant_1 || 0),
+                    Number(r.total || 0),
+                    r.descripcion_nota || '',
+                    r.responsable || ''
+                ]);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+
+            const nombreArchivo = `Reporte_CENIS_${Date.now()}_${etiquetaPeriodo.replace(/[^a-zA-Z0-9_-]/g, '_')}.xlsx`;
+
+            let linkDescarga = '';
+            try {
+                const { error: upErr } = await supabaseClient.storage
+                    .from('reportes_cenis')
+                    .upload(nombreArchivo, blob, {
+                        contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        upsert: true
+                    });
+
+                if (!upErr) {
+                    const { data: pubData } = supabaseClient.storage
+                        .from('reportes_cenis')
+                        .getPublicUrl(nombreArchivo);
+                    linkDescarga = pubData?.publicUrl || '';
+                }
+            } catch (e) {
+                console.warn('No se pudo subir a Storage:', e);
+            }
+
+            if (descargarLocal) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = nombreArchivo;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            return { nombreArchivo, linkDescarga };
+        }
+
+        // ==========================================
+        // ÚLTIMO BLOQUE: ENVÍO DEL FORMULARIO DEL MODAL
+        // ==========================================
+        document.getElementById('formConfirmarEnvioReporte').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnConfirmarEnvio');
+            btn.disabled = true;
+            btn.innerText = 'Generando y enviando...';
+
+            try {
+                const nombreDest = document.getElementById('envioNombreDest').value.trim();
+                const correoDest = document.getElementById('envioCorreoDest').value.trim();
+                const notaExtra = document.getElementById('envioNotaExtra').value.trim();
+                const descargarLocal = document.getElementById('envioDescargarExcel').checked;
+
+                const tipoRep = document.getElementById('repTipo').value;
+                const { canData, camData, almacenesSel, fIni, fFin } = await consultarDatosReporteActual();
+
+                const sumCan = canData.reduce((s, r) => s + Number(r.total || 0), 0);
+                const sumCam = camData.reduce((s, r) => s + Number(r.total || 0), 0);
+
+                const mapaCentros = {};
+                const sumarCentro = (nombre, tipo, monto) => {
+                    const key = nombre || 'Sin centro';
+                    if (!mapaCentros[key]) mapaCentros[key] = { centro: key, cancelaciones: 0, cambios: 0, total: 0, monto: 0 };
+                    if (tipo === 'can') mapaCentros[key].cancelaciones++;
+                    else mapaCentros[key].cambios++;
+                    mapaCentros[key].total++;
+                    mapaCentros[key].monto += Number(monto || 0);
+                };
+                canData.forEach(r => sumarCentro(r.centro_distribucion, 'can', r.total));
+                camData.forEach(r => sumarCentro(r.centro_distribucion, 'cam', r.total));
+                const porCentro = Object.values(mapaCentros).sort((a, b) => b.total - a.total);
+
+                const mapaMotivos = {};
+                canData.forEach(r => {
+                    const m = r.motivo_cancelacion || 'SIN MOTIVO';
+                    mapaMotivos[m] = (mapaMotivos[m] || 0) + 1;
+                });
+                const porMotivo = Object.entries(mapaMotivos)
+                    .map(([motivo, conteo]) => ({ motivo, conteo }))
+                    .sort((a, b) => b.conteo - a.conteo);
+
+                const textoAlmacenes = almacenesSel.length > 0
+                    ? almacenesSel.join(', ')
+                    : 'Todos los almacenes';
+
+                const etiquetaPeriodo = tipoRep === 'general'
+                    ? 'General (Histórico completo)'
+                    : `${tipoRep.toUpperCase()} (${fIni || 'Inicio'} a ${fFin || 'Actual'})`;
+
+                const resultadoExcel = await generarExcelEjecutivoConGraficas({
+                    etiquetaPeriodo,
+                    textoAlmacenes,
+                    canData,
+                    camData,
+                    porCentro,
+                    porMotivo,
+                    descargarLocal
+                });
+
+                const alertasCinco = porCentro.filter(c => c.cancelaciones >= 5 || c.cambios >= 5 || c.total >= 5);
+
+                const bloqueTopCentros = porCentro.length
+                    ? porCentro.slice(0, 8).map(c =>
+                        `  • ${c.centro}: ${c.cancelaciones} cancelaciones, ${c.cambios} cambios (Total: ${c.total} | $${c.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })})`
+                    ).join('\n')
+                    : '  • Sin incidencias registradas en este filtro.';
+
+                const bloqueMotivos = porMotivo.length
+                    ? porMotivo.slice(0, 5).map(m => `  • ${m.motivo}: ${m.conteo}`).join('\n')
+                    : '  • Sin cancelaciones en este filtro.';
+
+                const bloqueAlertas = alertasCinco.length
+                    ? alertasCinco.map(a => `  ⚠️ ${a.centro} (${a.total} incidencias en total)`).join('\n')
+                    : '  ✅ Ningún centro alcanzó 5 o más incidencias.';
+
+                const bloqueLink = resultadoExcel.linkDescarga
+                    ? `\n📥 DESCARGAR EXCEL COMPLETO (CON TABLAS Y GRÁFICAS):\n${resultadoExcel.linkDescarga}\n`
+                    : (resultadoExcel.nombreArchivo ? `\n📎 Archivo Excel generado localmente: ${resultadoExcel.nombreArchivo}\n` : '');
+
+                const resumenCompleto =
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `RESUMEN EJECUTIVO CENIS\n` +
+                    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+                    `• Tipo de corte: ${etiquetaPeriodo}\n` +
+                    `• Almacén(es): ${textoAlmacenes}\n` +
+                    `• Cancelaciones: ${canData.length}  ($${sumCan.toLocaleString('es-MX', { minimumFractionDigits: 2 })})\n` +
+                    `• Cambios de forma de pago: ${camData.length}  ($${sumCam.toLocaleString('es-MX', { minimumFractionDigits: 2 })})\n` +
+                    `• Total general: ${canData.length + camData.length} incidencias  ($${(sumCan + sumCam).toLocaleString('es-MX', { minimumFractionDigits: 2 })})\n\n` +
+                    `DESGLOSE POR CENTRO DE DISTRIBUCIÓN:\n${bloqueTopCentros}\n\n` +
+                    `PRINCIPALES MOTIVOS DE CANCELACIÓN:\n${bloqueMotivos}\n\n` +
+                    `ALERTAS (≥ 5 INCIDENCIAS):\n${bloqueAlertas}\n` +
+                    (notaExtra ? `\nOBSERVACIONES:\n${notaExtra}\n` : '') +
+                    bloqueLink;
+
+                if (EMAILJS_CONFIG.enabled && window.emailjs && EMAILJS_CONFIG.templateId) {
+                    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+                        email: correoDest,
+                        nombre: nombreDest,
+                        periodo: etiquetaPeriodo,
+                        pedidos: resumenCompleto
+                    });
+                    cerrarModalEnvioReporte();
+                    alert(`Reporte enviado por correo a ${correoDest}${resultadoExcel.linkDescarga ? ' con enlace directo de descarga' : ''}.`);
+                } else {
+                    cerrarModalEnvioReporte();
+                    window.location.href = `mailto:${encodeURIComponent(correoDest)}?subject=${encodeURIComponent('ISMERELY · CENIS — ' + etiquetaPeriodo)}&body=${encodeURIComponent(resumenCompleto)}`;
+                }
+            } catch (err) {
+                alert('Error al generar o enviar el reporte: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Enviar Correo y Generar Excel';
+            }
+        });
+
+        // ==========================================
+        // HISTORIAL, DETALLE Y CARGA MASIVA EXCEL
+        // ==========================================
         async function cargarHistorial(tabla) {
             tablaActual = tabla;
             document.getElementById('tablaActivaLabel').innerText = 'Mostrando: ' + (tabla === 'cenis_cancelaciones' ? 'Cancelaciones' : 'Cambios de Forma de Pago');
 
-            const { data, error } = await supabaseClient.from(tabla).select('*').order('fecha_registro_servidor', { ascending: false }).limit(200);
+            const { data, error } = await supabaseClient.from(tabla).select('*').order('fecha_registro_servidor', { ascending: false }).limit(300);
             if (error) return alert(error.message);
 
+            registrosCargados = data || [];
+            filtrarHistorialLocal();
+        }
+
+        function filtrarHistorialLocal() {
+            const texto = (document.getElementById('buscadorHistorial').value || '').trim().toLowerCase();
+            const fechaFiltro = document.getElementById('buscadorFecha').value;
+
+            registrosFiltrados = registrosCargados.filter(row => {
+                const fMan = row.fecha_registro_manual || row.fecha || '';
+                if (fechaFiltro && fMan !== fechaFiltro) return false;
+                if (!texto) return true;
+
+                const bolsa = [
+                    row.registrado_por,
+                    row.usuario_mostrador,
+                    row.num_venta,
+                    row.centro_distribucion,
+                    row.pais,
+                    row.nombre_embajador,
+                    row.id_embajador,
+                    row.motivo_cancelacion,
+                    row.descripcion_nota,
+                    row.responsable
+                ].filter(Boolean).join(' ').toLowerCase();
+
+                return bolsa.includes(texto);
+            });
+
+            renderTablaHistorial();
+        }
+
+        function renderTablaHistorial() {
             const tbody = document.getElementById('tablaHistorialBody');
-            tbody.innerHTML = (data || []).map(row => {
+            tbody.innerHTML = registrosFiltrados.map((row, index) => {
                 const fechaManual = row.fecha_registro_manual || row.fecha || '-';
                 const fechaSrv = row.fecha_registro_servidor ? new Date(row.fecha_registro_servidor).toLocaleString('es-MX') : '-';
                 return `
                     <tr>
                         <td class="font-medium">${fechaManual}</td>
                         <td class="text-slate-500">${fechaSrv}</td>
-                        <td>${row.registrado_por || row.usuario_mostrador || '-'}</td>
+                        <td class="font-semibold text-[#2b1926]">${row.registrado_por || row.usuario_mostrador || '-'}</td>
                         <td class="font-bold">${row.num_venta}</td>
                         <td>${row.centro_distribucion} <span class="text-slate-400">(${row.pais})</span></td>
                         <td><span class="badge-monto">$${Number(row.total || 0).toFixed(2)}</span></td>
                         <td>${row.motivo_cancelacion || row.descripcion_nota || '-'}</td>
-                        <td>${row.responsable}</td>
-                        <td class="text-right space-x-2">
-                            <button onclick="editarRegistro('${row.id}', '${row.num_venta}', '${row.responsable}')" class="text-blue-700 font-semibold hover:underline">Editar</button>
+                        <td class="text-right space-x-2 whitespace-nowrap">
+                            <button onclick="abrirDetalleRegistro(${index})" class="text-[#e6007e] font-bold hover:underline">Ver detalle</button>
+                            <button onclick="editarRegistro('${row.id}', '${row.num_venta}', '${row.responsable}')" class="text-slate-700 font-semibold hover:underline">Editar</button>
                             <button onclick="eliminarRegistro('${row.id}')" class="text-rose-600 font-semibold hover:underline">Eliminar</button>
                         </td>
                     </tr>
                 `;
             }).join('');
+        }
+
+        function abrirDetalleRegistro(index) {
+            if (!registrosFiltrados.length) return;
+            indiceModalActual = index;
+            renderModalDetalle();
+            document.getElementById('modalDetalleRegistro').classList.remove('hidden');
+        }
+
+        function cerrarModalDetalle() {
+            document.getElementById('modalDetalleRegistro').classList.add('hidden');
+        }
+
+        function navegarDetalle(delta) {
+            const nuevo = indiceModalActual + delta;
+            if (nuevo < 0 || nuevo >= registrosFiltrados.length) return;
+            indiceModalActual = nuevo;
+            renderModalDetalle();
+        }
+
+        function renderModalDetalle() {
+            const row = registrosFiltrados[indiceModalActual];
+            if (!row) return;
+
+            const fechaSrv = row.fecha_registro_servidor ? new Date(row.fecha_registro_servidor).toLocaleString('es-MX') : '-';
+            document.getElementById('modalTitulo').innerText = `${tablaActual === 'cenis_cancelaciones' ? 'Cancelación' : 'Cambio de Pago'} · Venta #${row.num_venta}`;
+            document.getElementById('modalSubtitulo').innerText = `Subido por: ${row.registrado_por || '-'} · Servidor: ${fechaSrv}`;
+            document.getElementById('modalContador').innerText = `${indiceModalActual + 1} de ${registrosFiltrados.length}`;
+
+            const campos = [
+                ['Fecha Manual', row.fecha_registro_manual || row.fecha || '-'],
+                ['Fecha y Hora Servidor', fechaSrv],
+                ['Usuario que Registró', row.registrado_por || '-'],
+                ['Usuario de Mostrador', row.usuario_mostrador || '-'],
+                ['Tipo / País', `${row.tipo_almacen || '-'} · ${row.pais || '-'}`],
+                ['Centro de Distribución', row.centro_distribucion || '-'],
+                ['ID Embajador', row.id_embajador || '-'],
+                ['Nombre Embajador', row.nombre_embajador || '-'],
+                ['Responsable', row.responsable || '-'],
+                ['Total', `$${Number(row.total || 0).toFixed(2)}`]
+            ];
+
+            if (tablaActual === 'cenis_cancelaciones') {
+                campos.push(
+                    ['Forma de Pago 1', `${row.forma_pago_1 || '-'} ($${Number(row.monto_1 || 0).toFixed(2)})`],
+                    ['Forma de Pago 2', `${row.forma_pago_2 || '-'} ($${Number(row.monto_2 || 0).toFixed(2)})`],
+                    ['Motivo Cancelación', row.motivo_cancelacion || '-'],
+                    ['Sustitución', row.sustitucion || '-']
+                );
+            } else {
+                campos.push(
+                    ['Pago Corregido 1', `${row.forma_pago_corr_1 || '-'} ($${Number(row.monto_corr_1 || 0).toFixed(2)})`],
+                    ['Pago Corregido 2', `${row.forma_pago_corr_2 || '-'} ($${Number(row.monto_corr_2 || 0).toFixed(2)})`],
+                    ['Pago Corregido 3', `${row.forma_pago_corr_3 || '-'} ($${Number(row.monto_corr_3 || 0).toFixed(2)})`],
+                    ['Pago Anterior 1', `${row.forma_pago_ant_1 || '-'} ($${Number(row.monto_ant_1 || 0).toFixed(2)})`],
+                    ['Pago Anterior 2', `${row.forma_pago_ant_2 || '-'} ($${Number(row.monto_ant_2 || 0).toFixed(2)})`],
+                    ['Pago Anterior 3', `${row.forma_pago_ant_3 || '-'} ($${Number(row.monto_ant_3 || 0).toFixed(2)})`],
+                    ['Descripción de Nota', row.descripcion_nota || '-']
+                );
+            }
+
+            document.getElementById('modalContenidoCampos').innerHTML = campos.map(([etiqueta, valor]) => `
+                <div class="bg-[#fdf9fb] border border-pink-100 rounded-lg p-2.5">
+                    <span class="block text-[10px] uppercase font-bold text-[#e6007e]">${etiqueta}</span>
+                    <span class="font-semibold text-[#2b1926] break-words">${valor}</span>
+                </div>
+            `).join('');
         }
 
         async function editarRegistro(id, ventaActual, respActual) {
@@ -478,6 +1344,231 @@
                 status.innerHTML = `<span class="text-emerald-700">¡Éxito! Se agregaron ${registros.length} registros al historial.</span>`;
                 cargarHistorial(tipoTabla);
             }
+        }
+
+        // ==========================================
+        // AVISOS DE 5 O MÁS INCIDENCIAS
+        // ==========================================
+        let ultimoTextoAvisoCinco = '';
+
+        async function evaluarAvisosCinco() {
+            const fIni = document.getElementById('avisoFechaInicio')?.value || '';
+            const fFin = document.getElementById('avisoFechaFin')?.value || '';
+            const cont = document.getElementById('listaAvisosCinco');
+            if (!cont) return;
+
+            const aplicar = (q) => {
+                if (fIni) q = q.gte('fecha', fIni);
+                if (fFin) q = q.lte('fecha', fFin);
+                return q;
+            };
+
+            const [resCan, resCam] = await Promise.all([
+                aplicar(supabaseClient.from('cenis_cancelaciones').select('centro_distribucion, total, fecha')),
+                aplicar(supabaseClient.from('cenis_cambios_pago').select('centro_distribucion, total, fecha'))
+            ]);
+
+            const mapa = {};
+            const asegurar = (centro) => {
+                const clave = centro || 'Sin centro';
+                if (!mapa[clave]) {
+                    mapa[clave] = { centro: clave, cancelaciones: 0, cambios: 0, totalCombinado: 0, monto: 0 };
+                }
+                return mapa[clave];
+            };
+
+            (resCan.data || []).forEach(r => {
+                const item = asegurar(r.centro_distribucion);
+                item.cancelaciones += 1;
+                item.totalCombinado += 1;
+                item.monto += Number(r.total || 0);
+            });
+
+            (resCam.data || []).forEach(r => {
+                const item = asegurar(r.centro_distribucion);
+                item.cambios += 1;
+                item.totalCombinado += 1;
+                item.monto += Number(r.total || 0);
+            });
+
+            const alertas = Object.values(mapa)
+                .filter(d => d.cancelaciones >= 5 || d.cambios >= 5 || d.totalCombinado >= 5)
+                .sort((a, b) => b.totalCombinado - a.totalCombinado);
+
+            if (alertas.length === 0) {
+                ultimoTextoAvisoCinco = `Sin centros con 5 o más incidencias en el rango (${fIni || 'Inicio'} a ${fFin || 'Actual'}).`;
+                cont.innerHTML = `<div class="col-span-full bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 font-semibold">${ultimoTextoAvisoCinco}</div>`;
+                return;
+            }
+
+            ultimoTextoAvisoCinco =
+                `AVISO DE CENTROS CON ≥ 5 CANCELACIONES Y/O CAMBIOS (${fIni || 'Inicio'} a ${fFin || 'Actual'}):\n` +
+                alertas.map(a =>
+                    `• ${a.centro}: ${a.cancelaciones} cancelaciones, ${a.cambios} cambios (Total: ${a.totalCombinado} | $${a.monto.toFixed(2)})`
+                ).join('\n');
+
+            cont.innerHTML = alertas.map(a => {
+                const motivosAlerta = [];
+                if (a.cancelaciones >= 5) motivosAlerta.push(`${a.cancelaciones} cancelaciones`);
+                if (a.cambios >= 5) motivosAlerta.push(`${a.cambios} cambios`);
+                if (a.totalCombinado >= 5 && a.cancelaciones < 5 && a.cambios < 5) {
+                    motivosAlerta.push(`${a.totalCombinado} combinados`);
+                }
+
+                return `
+                    <div class="bg-[#fff5fa] border-2 border-[#e6007e] rounded-xl p-3.5 shadow-sm">
+                        <div class="flex justify-between items-start gap-2 mb-1">
+                            <span class="font-black text-[#2b1926] text-sm">${a.centro}</span>
+                            <span class="bg-[#e6007e] text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Alerta ≥ 5</span>
+                        </div>
+                        <p class="text-[#e6007e] font-bold m-0 mb-1">Umbral alcanzado: ${motivosAlerta.join(' · ')}</p>
+                        <div class="text-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+                            <span>Cancelaciones: <strong>${a.cancelaciones}</strong></span>
+                            <span>Cambios: <strong>${a.cambios}</strong></span>
+                            <span>Total: <strong>${a.totalCombinado}</strong></span>
+                            <span>Monto: <strong>$${a.monto.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</strong></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function enviarCorreoAvisosCinco() {
+            if (!ultimoTextoAvisoCinco) {
+                await evaluarAvisosCinco();
+            }
+            const destino = prompt('Correo electrónico destino para el aviso:', EMAILJS_CONFIG.destinatarioDefault || '');
+            if (!destino) return;
+
+            if (EMAILJS_CONFIG.enabled && window.emailjs && EMAILJS_CONFIG.templateId) {
+                try {
+                    await emailjs.send(EMAILJS_CONFIG.serviceId, EMAILJS_CONFIG.templateId, {
+                        email: destino,
+                        nombre: 'Administración CENIS',
+                        periodo: 'Aviso ≥ 5 Incidencias',
+                        pedidos: ultimoTextoAvisoCinco
+                    });
+                    alert('Aviso enviado por correo a ' + destino);
+                    return;
+                } catch (err) {
+                    alert('No se pudo enviar directo por EmailJS, abriendo correo...');
+                }
+            }
+
+            window.location.href = `mailto:${encodeURIComponent(destino)}?subject=${encodeURIComponent('Aviso CENIS - Centros con 5 o más incidencias')}&body=${encodeURIComponent(ultimoTextoAvisoCinco)}`;
+        }
+
+        // ==========================================
+        // PANEL OCULTO DE EXPORTACIÓN A EXCEL
+        // ==========================================
+        document.getElementById('expListaAlmacenes').innerHTML = todosAlmacenes.map(a => `
+            <label class="chip-opcion">
+                <input type="checkbox" class="chk-exp-almacen" value="${a.nombre}">
+                <span class="truncate" title="${a.nombre}">${a.nombre}</span>
+            </label>
+        `).join('');
+
+        function togglePanelExportarExcel() {
+            const panel = document.getElementById('panelExportarExcelOculto');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) {
+                panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function marcarAlmacenesExport(marcar) {
+            document.querySelectorAll('.chk-exp-almacen').forEach(chk => {
+                chk.checked = marcar;
+                chk.closest('.chip-opcion')?.classList.toggle('seleccionado', marcar);
+            });
+        }
+
+        document.addEventListener('change', (e) => {
+            if (e.target.classList && e.target.classList.contains('chk-exp-almacen')) {
+                e.target.closest('.chip-opcion')?.classList.toggle('seleccionado', e.target.checked);
+            }
+        });
+
+        const COLUMNAS_CANCELACIONES = [
+            'Fecha', 'Usuario de mostrador', 'Núm de venta', 'ID de embajador',
+            'Nombre del embajador', 'Forma de pago 1', 'Monto 1', 'Forma de pago 2',
+            'Monto 2', 'Motivo de la cancelación', 'Sustitución', 'Responsable',
+            'Centro de distribución'
+        ];
+
+        const COLUMNAS_CAMBIOS_PAGO = [
+            'Fecha', 'Usuario de mostrador', 'Núm de venta', 'ID de embajador',
+            'Nombre del embajador', 'Forma de pago 1\n(corregido)', 'Monto corregido 1',
+            'Forma de pago 2\n(corregido)', 'Monto corregido 2', 'Forma de pago 3\n(corregido)',
+            'Monto corregido 3', 'Forma de pago 1\n(anterior)', 'Monto anterior 1',
+            'Forma de pago 2\n(anterior)', 'Monto anterior 2', 'Forma de pago 3\n(anterior)',
+            'Monto anterior 3', 'Descripción de la nota', 'Responsable', 'Centro de distribución'
+        ];
+
+        async function generarExcelFiltrado() {
+            const tabla = document.getElementById('expTablaExcel').value;
+            const fIni = document.getElementById('expFechaInicio').value;
+            const fFin = document.getElementById('expFechaFin').value;
+            const almacenesSel = Array.from(document.querySelectorAll('.chk-exp-almacen:checked')).map(c => c.value);
+            const estadoEl = document.getElementById('expEstadoExcel');
+
+            estadoEl.className = 'text-xs font-semibold text-[#e6007e]';
+            estadoEl.innerText = 'Consultando registros en Supabase...';
+
+            let query = supabaseClient.from(tabla).select('*').order('fecha', { ascending: true });
+            if (fIni) query = query.gte('fecha', fIni);
+            if (fFin) query = query.lte('fecha', fFin);
+            if (almacenesSel.length > 0) query = query.in('centro_distribucion', almacenesSel);
+
+            const { data, error } = await query;
+            if (error) {
+                estadoEl.className = 'text-xs font-semibold text-rose-600';
+                estadoEl.innerText = 'Error al consultar: ' + error.message;
+                return;
+            }
+
+            const filas = data || [];
+            if (filas.length === 0) {
+                estadoEl.className = 'text-xs font-semibold text-amber-700';
+                estadoEl.innerText = 'No hay registros con el periodo o almacenes seleccionados.';
+                return;
+            }
+
+            const esCancel = tabla === 'cenis_cancelaciones';
+            const headers = esCancel ? COLUMNAS_CANCELACIONES : COLUMNAS_CAMBIOS_PAGO;
+
+            const filasFormateadas = filas.map(r => {
+                const fechaFinal = r.fecha_registro_manual || r.fecha || '';
+                if (esCancel) {
+                    return [
+                        fechaFinal, r.usuario_mostrador || '', r.num_venta || '', r.id_embajador || '',
+                        r.nombre_embajador || '', r.forma_pago_1 || '', Number(r.monto_1) || 0,
+                        r.forma_pago_2 || '', Number(r.monto_2) || 0, r.motivo_cancelacion || '',
+                        r.sustitucion || '', r.responsable || '', r.centro_distribucion || ''
+                    ];
+                }
+                return [
+                    fechaFinal, r.usuario_mostrador || '', r.num_venta || '', r.id_embajador || '',
+                    r.nombre_embajador || '', r.forma_pago_corr_1 || '', Number(r.monto_corr_1) || 0,
+                    r.forma_pago_corr_2 || '', Number(r.monto_corr_2) || 0, r.forma_pago_corr_3 || '',
+                    Number(r.monto_corr_3) || 0, r.forma_pago_ant_1 || '', Number(r.monto_ant_1) || 0,
+                    r.forma_pago_ant_2 || '', Number(r.monto_ant_2) || 0, r.forma_pago_ant_3 || '',
+                    Number(r.monto_ant_3) || 0, r.descripcion_nota || '', r.responsable || '',
+                    r.centro_distribucion || ''
+                ];
+            });
+
+            const hojaData = [[], [], headers, ...filasFormateadas];
+            const ws = XLSX.utils.aoa_to_sheet(hojaData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, esCancel ? 'Cancelaciones' : 'CambiosPago');
+
+            const sufijoFecha = (fIni || fFin) ? `${fIni || 'inicio'}_a_${fFin || 'fin'}` : 'general';
+            const nombreArchivo = `CENIS_${esCancel ? 'Cancelaciones' : 'CambiosPago'}_${sufijoFecha}.xlsx`;
+            XLSX.writeFile(wb, nombreArchivo);
+
+            estadoEl.className = 'text-xs font-semibold text-emerald-700';
+            estadoEl.innerText = `Exportados ${filas.length} registros a ${nombreArchivo} ✓`;
         }
     </script>
 </body>
